@@ -4,7 +4,7 @@ import numpy as np
 # Parameters
 cap_region_x_begin = 0.5  # start point/total width
 cap_region_y_end = 0.8  # start point/total width
-threshold = 60  # BINARY threshold
+threshold = 80  # BINARY threshold
 blurValue = 41  # GaussianBlur parameter
 bgSubThreshold = 50
 learningRate = 0
@@ -40,13 +40,25 @@ class FingerDetector:
         print("Ending finger detection")
         self.keepRunning = False
 
+    def get_frame(self):
+        _, frame = self.camera.read()
+        return cv.flip(frame, 1)
+
+    def draw_rectangle(self, frame):
+        cv.rectangle(frame, (int(cap_region_x_begin * frame.shape[1]), 0),
+                     (frame.shape[1], int(cap_region_y_end * frame.shape[0])), (255, 0, 0), 2)
+
     def main(self):
         while self.keepRunning:
-            _, frame = self.camera.read()
-            frame = cv.flip(frame, 1)
-            cv.rectangle(frame, (int(cap_region_x_begin * frame.shape[1]), 0),
-                         (frame.shape[1], int(cap_region_y_end * frame.shape[0])), (255, 0, 0), 2)
+            frame = self.get_frame()
+            self.draw_rectangle(frame)
             cv.imshow('original', frame)
+
+            if self.isBgCaptured:
+                img = self.remove_bg(frame)
+                img = img[0:int(cap_region_y_end * frame.shape[0]),
+                          int(cap_region_x_begin * frame.shape[1]):frame.shape[1]]
+                cv.imshow('mask', img)
 
             k = cv.waitKey(10)
             if k == 27:  # ESC to exit
