@@ -112,7 +112,10 @@ class FingerDetector:
                           int(cap_region_x_begin * frame.shape[1]):frame.shape[1]]
                 cv.imshow('mask', img)
                 thresh = to_binary(img)
-                res, drawing = find_contour(thresh, img)
+                try:
+                    res, drawing = find_contour(thresh, img)
+                except TypeError:
+                    continue
                 finger_num = calculate_fingers(res, drawing)
                 print(finger_num)
                 cv.imshow('output', drawing)
