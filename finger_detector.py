@@ -2,26 +2,19 @@ import math
 import cv2 as cv
 import numpy as np
 
-# Parameters
-cap_region_x_begin = 0.5  # start point/total width
-cap_region_y_end = 0.8  # start point/total width
-threshold = 80  # BINARY threshold
-blurValue = 41  # Gaussian Blur parameter
-bgSubThreshold = 50
-learningRate = 0
-
-
-def draw_rectangle(frame):
-    cv.rectangle(frame, (int(cap_region_x_begin * frame.shape[1]), 0),
-                 (frame.shape[1], int(cap_region_y_end * frame.shape[0])), (255, 0, 0), 2)
+REGION_X_START = 0.5
+REGION_Y_END = 0.8
+BINARY_THRESHOLD = 80
+BLUR = 41
+BG_THRESHOLD = 50
 
 
 def remove_bg(bg_model, frame):
-    fg_mask = bg_model.apply(frame, learningRate=learningRate)
+    fg_mask = bg_model.apply(frame, learningRate=0)
     kernel = np.ones((3, 3), np.uint8)
     fg_mask = cv.erode(fg_mask, kernel, iterations=1)
-    res = cv.bitwise_and(frame, frame, mask=fg_mask)
-    return res
+    result = cv.bitwise_and(frame, frame, mask=fg_mask)
+    return result
 
 
 def to_binary(img):
