@@ -18,16 +18,15 @@ def remove_bg(bg_model, frame):
 
 
 def to_binary(img):
-    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-    blur = cv.GaussianBlur(gray, (blurValue, blurValue), 0)
-    cv.imshow('blur', blur)
-    _, thresh = cv.threshold(blur, threshold, 255, cv.THRESH_BINARY)
-    cv.imshow('ori', thresh)
-    return thresh
+    img_gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    img_blur = cv.GaussianBlur(img_gray, (BLUR, BLUR), 0)
+    cv.imshow('Blurred background', img_blur)
+    _, img_binary = cv.threshold(img_blur, BINARY_THRESHOLD, 255, cv.THRESH_BINARY)
+    return img_binary
 
 
-def find_contour(thresh, img):
-    contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+def find_contour(img, img_no_bg):
+    contours, hierarchy = cv.findContours(img, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
     length = len(contours)
     max_area = -1
     ci = 0
@@ -40,29 +39,29 @@ def find_contour(thresh, img):
                 ci = i
         res = contours[ci]
         hull = cv.convexHull(res)
-        drawing = np.zeros(img.shape, np.uint8)
+        drawing = np.zeros(img_no_bg.shape, np.uint8)
         cv.drawContours(drawing, [res], 0, (0, 255, 0), 2)
         cv.drawContours(drawing, [hull], 0, (0, 0, 255), 3)
         return res, drawing
 
 
-def calculate_fingers(res, drawing):
-    hull = cv.convexHull(res, returnPoints=False)
+def calculate_fingers(hand, img):
+    hull = cv.convexHull(hand, returnPoints=False)
     finger_count = 0
-    if len(hull) > 3:
-        defects = cv.convexityDefects(res, hull)
+    defects = cv.convexityDefects(hand, hull)
+    if len(hull) > 3 and defects is not None:
         for i in range(defects.shape[0]):
             s, e, f, d = defects[i][0]
-            start = tuple(res[s][0])
-            end = tuple(res[e][0])
-            far = tuple(res[f][0])
+            start = tuple(hand[s][0])
+            end = tuple(hand[e][0])
+            far = tuple(hand[f][0])
             a = math.sqrt((end[0] - start[0]) ** 2 + (end[1] - start[1]) ** 2)
             b = math.sqrt((far[0] - start[0]) ** 2 + (far[1] - start[1]) ** 2)
             c = math.sqrt((end[0] - far[0]) ** 2 + (end[1] - far[1]) ** 2)
             angle = math.acos((b ** 2 + c ** 2 - a ** 2) / (2 * b * c))
             if angle <= math.pi / 2:  # angle less than 90 degree, treat as fingers
                 finger_count += 1
-                cv.circle(drawing, far, 8, [211, 84, 0], -1)
+                cv.circle(img, far, 8, [211, 84, 0], -1)
     return finger_count
 
 
@@ -74,14 +73,9 @@ class FingerDetector:
         self.bgModel = None
         try:
             self.camera = cv.VideoCapture(0)
-            self.main()
         except cv.error as e:
             print("Error: " + e)
-
-    def capture_bg(self):
-        self.bgModel = cv.createBackgroundSubtractorMOG2(0, bgSubThreshold)
-        self.isBgCaptured = True
-        print("Background Captured")
+        self.main()
 
     def end_detection(self):
         self.camera.release()
@@ -93,25 +87,31 @@ class FingerDetector:
         _, frame = self.camera.read()
         return cv.flip(frame, 1)
 
+    def capture_bg(self):
+        self.bgModel = cv.createBackgroundSubtractorMOG2(0, BG_THRESHOLD)
+        self.isBgCaptured = True
+        print("Background Captured")
+
     def main(self):
         while self.keepRunning:
             frame = self.get_frame()
-            draw_rectangle(frame)
-            cv.imshow('original', frame)
-
+            cv.rectangle(frame, (int(REGION_X_START * frame.shape[1]), 0),
+                         (frame.shape[1], int(REGION_Y_END * frame.shape[0])), (255, 0, 0), 2)
+            cv.imshow('Original', frame)
             if self.isBgCaptured:
-                img = remove_bg(self.bgModel, frame)
-                img = img[0:int(cap_region_y_end * frame.shape[0]),
-                          int(cap_region_x_begin * frame.shape[1]):frame.shape[1]]
-                cv.imshow('mask', img)
-                thresh = to_binary(img)
+                img_no_bg = remove_bg(self.bgModel, frame)
+                img_with_mask = img_no_bg[0:int(REGION_Y_END * frame.shape[0]),
+                                          int(REGION_X_START * frame.shape[1]):frame.shape[1]]
+                cv.imshow('Image no background', img_with_mask)
+                img_binary = to_binary(img_with_mask)
+                cv.imshow('Binary image', img_binary)
                 try:
-                    res, drawing = find_contour(thresh, img)
+                    hand, img_final = find_contour(img_binary, img_with_mask)
                 except TypeError:
                     continue
-                finger_num = calculate_fingers(res, drawing)
+                finger_num = calculate_fingers(hand, img_final)
                 print(finger_num)
-                cv.imshow('output', drawing)
+                cv.imshow('Result', img_final)
 
             k = cv.waitKey(10)
             if k == 27:  # ESC to exit
