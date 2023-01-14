@@ -1,6 +1,7 @@
 import math
 import cv2 as cv
 import numpy as np
+import pyautogui
 
 REGION_X_START = 0.5
 REGION_Y_END = 0.8
@@ -65,12 +66,23 @@ def calculate_fingers(hand, img):
     return finger_count
 
 
+def gest_out(avg):
+    pass
+    # if avg == 2:
+    #     pyautogui.press('volumeup')
+    # if avg == 4:
+    #     pyautogui.press('volumedown')
+    # if avg == 1:
+    #     pyautogui.press('playpause')
+
+
 class FingerDetector:
 
     def __init__(self):
         self.keepRunning = True
         self.isBgCaptured = False
         self.bgModel = None
+        self.fingersHistory = []
         try:
             self.camera = cv.VideoCapture(0)
         except cv.error as e:
@@ -112,6 +124,12 @@ class FingerDetector:
                 finger_num = calculate_fingers(hand, img_final)
                 print(finger_num)
                 cv.imshow('Result', img_final)
+                if len(self.fingersHistory) > 10:
+                    self.fingersHistory.pop(0)
+                self.fingersHistory.append(finger_num)
+                current_fingers = int(sum(self.fingersHistory) / len(self.fingersHistory))
+                print(current_fingers)
+                gest_out(current_fingers)
 
             k = cv.waitKey(10)
             if k == 27:  # ESC to exit
