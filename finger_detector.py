@@ -2,6 +2,7 @@ import math
 import cv2 as cv
 import numpy as np
 import pyautogui
+import time
 
 REGION_X_START = 0.5
 REGION_Y_END = 0.8
@@ -66,14 +67,25 @@ def calculate_fingers(hand, img):
     return finger_count
 
 
-def gest_out(avg):
-    pass
-    # if avg == 2:
-    #     pyautogui.press('volumeup')
-    # if avg == 4:
-    #     pyautogui.press('volumedown')
-    # if avg == 1:
-    #     pyautogui.press('playpause')
+def gest_out(self, finger_count):
+    if 0 <= finger_count <= 5:
+        self.fingersHistory.append(finger_count)
+        if len(self.fingersHistory) > 5:
+            self.fingersHistory.pop(0)
+        # check the average finger count over the last 5 frames
+        self.last_finger_count = int(sum(self.fingersHistory) / len(self.fingersHistory))
+        if finger_count != self.last_finger_count:
+            self.last_finger_count = finger_count
+        if finger_count == 2:
+            pyautogui.press('volumeup')
+            print("Volume Up")
+        elif finger_count == 3:
+            pyautogui.press('volumedown')
+            print("Volume down")
+        elif finger_count == 1:
+            pyautogui.press('playpause')
+            print("Play / Pause")
+    self.last_action_time = time.time()
 
 
 class FingerDetector:
@@ -84,7 +96,7 @@ class FingerDetector:
         self.bgModel = None
         self.fingersHistory = []
         try:
-            self.camera = cv.VideoCapture(0)
+            self.camera = cv.VideoCapture(1)
         except cv.error as e:
             print("Error: " + e)
         self.main()
@@ -129,7 +141,7 @@ class FingerDetector:
                 self.fingersHistory.append(finger_num)
                 current_fingers = int(sum(self.fingersHistory) / len(self.fingersHistory))
                 print(current_fingers)
-                gest_out(current_fingers)
+                gest_out(self, current_fingers)
 
             k = cv.waitKey(10)
             if k == 27:  # ESC to exit
